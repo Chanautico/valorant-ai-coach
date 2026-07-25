@@ -3,7 +3,10 @@ from google import genai
 from dotenv import load_dotenv
 from services.tracker_api import buscar_dados_tracker
 
-load_dotenv()
+# Carrega o .env apenas se ele existir localmente (na nuvem usamos os Secrets do Streamlit)
+if os.path.exists(".env"):
+    load_dotenv()
+
 client = genai.Client()
 
 def iniciar_coach(riot_id):

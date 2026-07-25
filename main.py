@@ -1,28 +1,59 @@
-import os
-from google import genai
-from dotenv import load_dotenv
+from core.ai_coach import iniciar_coach
+from services.database import iniciar_banco, salvar_mensagem
+# Importando nossa nova ferramenta de vídeo!
+from services.video_handler import processar_vod 
 
-# 1. Abre o cofre e pega a chave VIP
-load_dotenv()
-CHAVE_API = os.getenv("GEMINI_API_KEY")
+def main():
+    print("Iniciando o sistema...")
+    iniciar_banco()
+    chat = iniciar_coach()
+    
+    print("Coach Frttt da Shopee tá online. Digite 'sair' para quitar.")
+    print("🎬 DICA: Para analisar uma play, digite: /video caminho/do/arquivo.mp4\n")
 
-# 2. Configura o motor NOVO da IA
-client = genai.Client(api_key=CHAVE_API)
+    while True:
+        mensagem = input("Você: ")
+        
+        if mensagem.lower() == 'sair':
+            print("Coach: Vai lá, seu bagre. Vê se treina pelo menos no The Range!")
+            break
+            
+        # 1. IDENTIFICANDO O MODO VÍDEO
+        if mensagem.lower().startswith("/video"):
+            # Picota a string pra pegar só o que vem depois do espaço
+            partes = mensagem.split(" ", 1)
+            
+            if len(partes) < 2:
+                print("Coach: Cadê o vídeo, filhão? Digita o bagulho direito: /video nome_do_arquivo.mp4")
+                continue
+                
+            caminho_video = partes[1].strip()
+            
+            try:
+                # Manda pro nosso handler fazer o upload e esperar
+                arquivo_video = processar_vod(caminho_video)
+                
+                # A instrução secreta que a gente manda junto com o vídeo pro Coach
+                prompt_analise = "Analise esse VOD de Valorant. Me aponte os erros de posicionamento, mira, uso de skill e tomada de decisão. Coloque os tempos exatos do vídeo (timestamps). Seja o Coach Frttt e não perdoe as pinadas."
+                
+                # O PULO DO GATO: Mandando os dois juntos numa lista [ ]
+                response = chat.send_message([arquivo_video, prompt_analise])
+                
+                # Salvando no banco (salvamos só um aviso pra não bugar o texto do SQLite)
+                salvar_mensagem("user", f"[Enviou o VOD para análise: {caminho_video}]")
+                salvar_mensagem("model", response.text)
+                
+                print(f"\nCoach:\n{response.text}\n")
+                
+            except Exception as e:
+                print(f"\n[Sistema] Deu zica na hora de ler o vídeo, truta. Olha o erro: {e}")
+                
+        # 2. FLUXO NORMAL DE TEXTO
+        else:
+            salvar_mensagem("user", mensagem)
+            response = chat.send_message(mensagem)
+            salvar_mensagem("model", response.text)
+            print(f"\nCoach:\n{response.text}\n")
 
-# 3. O nosso Prompt Master
-prompt_sistema = """Você é o maior especialista em treinamento competitivo de VALORANT do mundo. 
-Seu objetivo é maximizar a evolução do jogador. Seja exigente e identifique os erros."""
-
-# 4. A mensagem do jogador
-mensagem_usuario = "Sou ferro, jogo de Sage, Killjoy e Breach e pino tiro demais. O que eu faço pra começar a melhorar?"
-
-print("Pensando na jogada... aguarde!\n")
-
-# 5. A IA processa tudo e responde (usando a sintaxe nova)
-resposta = client.models.generate_content(
-    model='gemini-flash-latest',
-    contents=f"{prompt_sistema}\n\nJogador: {mensagem_usuario}"
-)
-
-print("--- RESPOSTA DO HEAD COACH ---")
-print(resposta.text)
+if __name__ == "__main__":
+    main()

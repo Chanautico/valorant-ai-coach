@@ -1,13 +1,26 @@
 import os
+import streamlit as st
 from google import genai
 from dotenv import load_dotenv
 from services.tracker_api import buscar_dados_tracker
 
-# Carrega o .env apenas se ele existir localmente (na nuvem usamos os Secrets do Streamlit)
+# Carrega o .env se existir localmente
 if os.path.exists(".env"):
     load_dotenv()
 
-client = genai.Client()
+# Pega a chave dos Secrets do Streamlit Cloud ou da variável de ambiente padrão
+api_key = None
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
+
+if not api_key:
+    api_key = os.getenv("GEMINI_API_KEY")
+
+# Inicializa o cliente do Gemini passando a chave explicitamente
+client = genai.Client(api_key=api_key)
 
 def iniciar_coach(riot_id):
     relatorio_stats = buscar_dados_tracker(riot_id)
@@ -24,11 +37,10 @@ def iniciar_coach(riot_id):
     - Você aceita imagens, áudios e vídeos enviados pelo aluno para analisar prints de partida ou gravações completas de gameplay.
     """
     
-    # Rota atualizada para os modelos estáveis mais recentes da API do Gemini
     modelos_disponiveis = [
-        "gemini-3.6-flash",
+        "gemini-2.5-flash",
         "gemini-3.5-flash",
-        "gemini-2.5-flash"
+        "gemini-3.6-flash"
     ]
     
     chat = None
